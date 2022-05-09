@@ -1,0 +1,331 @@
+---
+title: "RNAseq_second_order_shuffling"
+author: "Matt"
+date: "2/2022"
+output: html_document
+---
+
+
+```{r, packages, include=FALSE}
+#may need to install some of these before first use
+library(ggplot2)
+library(DESeq2)
+library(tidyverse)
+library(DESeq2)
+library(magrittr)
+library(RColorBrewer)
+library(pheatmap)
+library(dendroextras)
+library(dplyr)
+library(LPWC)
+library(dendextend)
+library(pheatmap)
+library(cluster)
+```
+
+
+```{r, first time file table setup}
+setwd("C:/Users/Owner/Desktop/Lab Work/RNAseq/DE Analysis repeat masked genome")
+
+#########these lines build the file table, this only need to be done once. Require input files with counts for protein coding, non mitochondrial genes. Here, there are 12 files.
+
+all_files=list.files(pattern = '_nonMito_protein.txt')
+names(all_files)=substr(all_files,1,9)
+
+
+
+index=0
+for (a in c(1,2,3,4)){
+  for (b in c(1,2,3,4)){
+    for (c in c(1,2,3,4)){
+      for (d in c(1,2,3,4)){
+        if (a != b && a != c && a != d && b !=c && b != d && c != d){
+          
+          file_table=as_tibble(names(all_files))%>%dplyr::rename(sampleName=value)
+
+          #fill in the filename column
+          file_table$fileName=all_files
+
+          #fill in the condition column - check this file carefully to make sure the order is right!
+          file_table$condition=rep(c("X_Y","X_YY","XO","XY"), each = 3)
+          
+          design_polynomial = poly(c(a,b,c,d), 2)
+          file_table$poly1=rep(c(design_polynomial[3:4,1],design_polynomial[1:2,1]),each = 3)
+          file_table$poly2=rep(c(design_polynomial[3:4,2],design_polynomial[1:2,2]),each = 3)
+         
+          #Write the sample table to the current directory. Check the file to make sure all files match in terms of sample name, file name, and condition.
+          write.csv(file_table,file = 'sampleTable_RNA_all.txt',row.names = FALSE)
+
+
+          sample_name="_RNA_all"
+          sampleTable <- read.csv(paste0('sampleTable',sample_name,'.txt'))
+
+
+          #poly1 and poly2 are defined above when making the file table. Make a new DESeq object with design including poly1 and poly2
+          ddsMF <- DESeqDataSetFromHTSeqCount(sampleTable=sampleTable, design= ~ 1 + poly1 + poly2)
+          ddsMF <- ddsMF[ rowSums(counts(ddsMF)) > 50, ]  
+          ddsMF = estimateSizeFactors(ddsMF)
+          ddsMF = estimateDispersions(ddsMF)
+          #likelihood ratio test comparing full and reduced model.
+          ddsMF = nbinomLRT(ddsMF,
+                            full = ~ 1 + poly1 + poly2,
+                            reduced = ~ 1 )
+
+
+
+          #get list of genes identified by LRT, which by default uses a padj of 0.10. 
+          resMF=results(ddsMF)
+          summary(resMF)
+
+          #Using a stricter padj of 0.05, create a list of genes of interest and extract the normalized reads per gene. Further analysis uses only this list of 590 genes.
+          res_.05 = results(ddsMF,alpha=.05)
+          summary(res_.05)
+          res_sig = subset(res_.05, padj < .05)
+          
+          
+          index=index+1
+          name <- paste("gene_name_list",index,sep="_")
+          
+          assign(name,data.frame(res_sig@rownames))
+          
+          rm(file_table)
+          
+           
+        }
+      }
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+```{r}
+
+concatenated=rbind(gene_name_list_1, gene_name_list_2, gene_name_list_3, gene_name_list_4, gene_name_list_5, gene_name_list_6, gene_name_list_7, gene_name_list_8,
+               gene_name_list_9, gene_name_list_10, gene_name_list_11, gene_name_list_12, gene_name_list_13, gene_name_list_14, gene_name_list_15, gene_name_list_16,
+               gene_name_list_17, gene_name_list_18, gene_name_list_19, gene_name_list_20, gene_name_list_21, gene_name_list_22, gene_name_list_23, gene_name_list_24)
+
+shuffled_second_order_list = concatenated %>% distinct()
+shuffled_second_order_list <- as.data.frame(shuffled_second_order_list[order(shuffled_second_order_list$res_sig.rownames),])
+colnames(shuffled_second_order_list)="FBgn_code"
+
+write.table(shuffled_second_order_list,file="FBgn_names_shuffled_second_order.txt",col.names=NA)
+```
+
+```{r}
+FlyBase_all_2676 = read.delim("FlyBase_shuffled_second_order.txt", header=FALSE, comment.char="#")
+gene_names_shuffled_second_order = select(FlyBase_all_2676,V1,V4)
+colnames(gene_names_shuffled_second_order) = c("FBgn_code","gene_name")
+
+
+
+
+#reads_per_gene_shuffled_second_order = merge(reads_per_gene,gene_names_shuffled_second_order, by = "FBgn_code")
+
+```
+
+
+
+
+```{r}
+
+#cluster on regularized log data.
+rld <- rlog(ddsMF)
+rlog_data_full=data.frame(assay(rld))
+rlog_data_full = tibble::rownames_to_column(rlog_data_full, "FBgn_code")
+
+colnames(gene_names_shuffled_second_order)=c("FBgn_code","gene_name")
+#make an object with the data for only my genes of interest
+rlog_my_list = merge(rlog_data_full,gene_names_shuffled_second_order, by = "FBgn_code")
+
+
+#make a distance matrix for hclust input. Need to adjust data frame row names and remove extra rows so that hclust doesn't give errors.
+rlog_mat = tibble::remove_rownames(rlog_my_list)
+rlog_mat = rlog_mat[!(is.na(rlog_mat$gene_name) | rlog_mat$gene_name==""), ]
+rlog_mat = tibble::remove_rownames(rlog_mat)
+rlog_mat = tibble::column_to_rownames(rlog_mat, "gene_name")
+rlog_mat=rlog_mat[sapply(rlog_mat, is.numeric)]
+rlog_mat=t(rlog_mat)
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+
+#simplest possible use of LPWC following documentation: https://gitter-lab.github.io/LPWC/articles/LPWC.html
+LPWC_data=t(rlog_mat)
+timepoints = c(3,3,3,4,4,4,1,1,1,2,2,2)
+
+dist_lpwc= 1 - LPWC::corr.bestlag(LPWC_data, timepoints = timepoints, max.lag = 1, penalty = "high", iter = 10)$corr
+
+
+#at some point, could try with max.lag=0 to see if there are any differences (since we shouldn't need any lags)
+
+```
+
+
+
+
+
+```{r}
+reads_per_gene <- read.table("counts_per_gene_normalized.txt",header = TRUE)
+colnames(reads_per_gene)=c("FBGN_code","X_Y_5","X_Y_6","X_Y_7","X_YY_5","X_YY_6","X_YY_7","XO_5","XO_6","XO_7","XY_5","XY_6","XY_7")
+colnames(gene_names_shuffled_second_order) = c("FBGN_code","gene_name")
+
+reads_per_gene_my_list = merge(reads_per_gene,gene_names_shuffled_second_order, by = "FBGN_code")
+reads_per_gene_my_list <- reads_per_gene_my_list[-which(reads_per_gene_my_list$gene_name == ""), ]
+
+plot_list=vector("list", 2667)
+
+for(i in 1:2667) {
+  
+  
+
+  current_gene = filter(reads_per_gene_my_list, gene_name == hcd_lpwc_labels[i])
+  name <- paste("gene_with_variables",i,sep="_")
+  assign(name,data.frame("Gene"=current_gene$gene_name[1],"Repeat"=rep(c("5","6","7"), 4), "Genotype"=rep(c("XO","XY","X_Y","X_YY"), each = 3),"Ys"=rep(c(0,1,1,2), each = 3),"X_origin"=rep(c(0,1), each = 6),"autosomal_origin"=rep(c(1,2,0,1), each=3),"Reads"=c(current_gene$XO_5[1],current_gene$XO_6[1],current_gene$XO_7[1],current_gene$XY_5[1],current_gene$XY_6[1],current_gene$XY_7[1],current_gene$X_Y_5[1],current_gene$X_Y_6[1],current_gene$X_Y_7[1],current_gene$X_YY_5[1],current_gene$X_YY_6[1],current_gene$X_YY_7[1])))
+  
+  
+  Genotype_plot_name=paste("Genotype_plot",i,sep="_")
+  assign(Genotype_plot_name, ggplot(get(name), aes(x=Genotype,y=Reads,group=Repeat)) + geom_line(size=0.01,color="red") + geom_point() + scale_x_discrete(limits = c("XO", "XY", "X_Y","X_YY")) + expand_limits(y=0) +
+  xlab("Genotype") + ylab("reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by Genotype",sep=" ")))
+  
+  
+  #Y_dosage_plot_name=paste("Y_dosage_plot",i,sep="_")
+  #assign(Y_dosage_plot_name, ggplot(get(name), aes(x=Ys,y=Reads)) + geom_point() +
+  #xlab("number of Y chromosomes") + ylab("reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by Y dosage",sep=" ")))
+
+  #X_origin_plot_name=paste("X_origin_plot",i,sep="_")
+  #assign(X_origin_plot_name, ggplot(get(name), aes(x=X_origin,y=Reads)) + geom_point() +
+  #xlab("X chromosome origin (0 = Canton-S, 1 = compound)") + ylab("Reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by X origin",sep=" ")))
+
+  #autosomal_origin_plot_name=paste("autosomal_origin_plot",i,sep="_")
+  #assign(autosomal_origin_plot_name, ggplot(get(name), aes(x=autosomal_origin,y=Reads)) + geom_point() +
+  #xlab("autosomal origin (perspective of Canton-S)") + ylab("Reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by autosomal origin",sep=" ")))
+
+   
+  
+  plot_list[[i]]$data = get(name)
+  plot_list[[i]]$Genotype_plot=get(Genotype_plot_name)
+  #plot_list[[i]]$Y_dosage_plot=get(Y_dosage_plot_name)
+  #plot_list[[i]]$X_origin_plot=get(X_origin_plot_name)
+  #plot_list[[i]]$autosomal_origin_plot=get(autosomal_origin_plot_name)
+  
+  print(plot_list[[i]]$Genotype_plot)
+  #print(plot_list[[i]]$Y_dosage_plot)
+  #print(plot_list[[i]]$X_origin_plot)
+  #print(plot_list[[i]]$autosomal_origin_plot)
+  
+}
+
+rm(list=ls(pattern="gene_with_variables"))
+rm(list=ls(pattern="_plot_"))
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+FlyBase_XO_spike_info <- read.delim("C:/Users/Owner/Desktop/Lab Work/RNAseq/DE Analysis repeat masked genome/FlyBase_XO_spike_info.txt", header=FALSE, comment.char="#")
+
+flybase_XO_spike_X_chr=FlyBase_XO_spike_info[FlyBase_XO_spike_info$V2 == "X",]
+
+XO_spike_hist=ggplot(flybase_XO_spike_X_chr, aes(x=V3)) + geom_histogram(binwidth = 1750000) + scale_x_continuous(breaks=c(0,5000000,10000000,15000000,20000000,23542271),labels= c("0","5Mb","10Mb","15Mb","20Mb","23.54Mb")) +coord_cartesian(xlim=c(0,23542271))+xlab("Position on X Chromosome")+ylab("Frequency")+ theme(text = element_text(size = 30)) 
+
+
+plot(XO_spike_hist)
+```
+
+
+
+
+
+```{r}
+
+
+
+flybase_X_ori_2L=FlyBase_X_ori_locations[FlyBase_X_ori_locations$V2 == "2L",]
+flybase_X_ori_2R=FlyBase_X_ori_locations[FlyBase_X_ori_locations$V2 == "2R",]
+flybase_X_ori_3L=FlyBase_X_ori_locations[FlyBase_X_ori_locations$V2 == "3L",]
+flybase_X_ori_3R=FlyBase_X_ori_locations[FlyBase_X_ori_locations$V2 == "3R",]
+
+
+hist_2L=ggplot(flybase_X_ori_2L, aes(x=V3)) + geom_histogram(binwidth = 1500000) + scale_x_continuous(breaks=c(0,5000000,10000000,15000000,20000000,25000000,30000000),labels= c("0","5Mb","10Mb","15Mb","20Mb","25Mb","30Mb")) +coord_cartesian(xlim=c(0,30000000))+xlab("Position on Chromosome 2L")+ylab("Frequency") 
+
+hist_2R=ggplot(flybase_X_ori_2R, aes(x=V3)) + geom_histogram(binwidth = 1500000) + scale_x_continuous(breaks=c(0,5000000,10000000,15000000,20000000,25000000,30000000),labels= c("0","5Mb","10Mb","15Mb","20Mb","25Mb","30Mb")) +coord_cartesian(xlim=c(0,30000000))+xlab("Position on Chromosome 2R")+ylab("Frequency") 
+
+hist_3L=ggplot(flybase_X_ori_3L, aes(x=V3)) + geom_histogram(binwidth = 1500000) + scale_x_continuous(breaks=c(0,5000000,10000000,15000000,20000000,25000000,30000000),labels= c("0","5Mb","10Mb","15Mb","20Mb","25Mb","30Mb")) +coord_cartesian(xlim=c(0,30000000))+xlab("Position on Chromosome 3L")+ylab("Frequency") 
+
+hist_3R=ggplot(flybase_X_ori_3R, aes(x=V3)) + geom_histogram(binwidth = 1500000) + scale_x_continuous(breaks=c(0,5000000,10000000,15000000,20000000,25000000,30000000),labels= c("0","5Mb","10Mb","15Mb","20Mb","25Mb","30Mb")) +coord_cartesian(xlim=c(0,30000000))+xlab("Position on Chromosome 3R")+ylab("Frequency") 
+
+
+plot(hist_2L)
+plot(hist_2R)
+plot(hist_3L)
+plot(hist_3R)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

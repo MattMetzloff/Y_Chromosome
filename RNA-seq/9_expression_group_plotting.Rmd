@@ -1,0 +1,590 @@
+---
+title: "manual_clustering"
+author: "Matt"
+date: "4/17/2022"
+output: html_document
+---
+
+```{r, packages, include=FALSE}
+#may need to install some of these before first use
+library(ggplot2)
+library(DESeq2)
+library(tidyverse)
+
+```
+
+
+This notebook plots the clusters that I defined manually. In general, I was pretty strict when defining these. They probably aren't perfectly clustered, but there are definitely some interesting things to see here. I'd recommend running all blocks and then reading through my annotations while looking at the plots this will generate.
+
+
+
+Start by reading in all the input files that went with this notebook:
+```{r, reading input files}
+#required input files: text file of normalized reads per gene, 1 text file with the full list of 2667 genes sorted by LPWC, 12 text files with manually defined clusters.
+
+
+#######################################
+#You'll need to call these from wherever they are downloaded on your computer.
+normalized_reads = read.table("C:/Users/Owner/Desktop/Lab Work/RNAseq/DE Analysis repeat masked genome/manually defined clusters/normalized_reads_per_gene.txt")
+dendrogram_order = read.table("C:/Users/Owner/Desktop/Lab Work/RNAseq/DE Analysis repeat masked genome/manually defined clusters/hcd_lpwc_labels.txt")
+
+X_origin = read.table("C:/Users/Owner/Desktop/Lab Work/RNAseq/DE Analysis repeat masked genome/manually defined clusters/X_origin.txt")
+autosomal = read.table("C:/Users/Owner/Desktop/Lab Work/RNAseq/DE Analysis repeat masked genome/manually defined clusters/autosomal.txt")
+Y_dosage = read.table("C:/Users/Owner/Desktop/Lab Work/RNAseq/DE Analysis repeat masked genome/manually defined clusters/Y_dosage.txt")
+X_Y_spike = read.table("C:/Users/Owner/Desktop/Lab Work/RNAseq/DE Analysis repeat masked genome/manually defined clusters/X_Y_spike.txt")
+XO_spike = read.table("C:/Users/Owner/Desktop/Lab Work/RNAseq/DE Analysis repeat masked genome/manually defined clusters/XO_spike.txt")
+X_YY_spike = read.table("C:/Users/Owner/Desktop/Lab Work/RNAseq/DE Analysis repeat masked genome/manually defined clusters/X_YY_spike.txt")
+constant_changes = read.table("C:/Users/Owner/Desktop/Lab Work/RNAseq/DE Analysis repeat masked genome/manually defined clusters/constant_change.txt")
+parabolic = read.table("C:/Users/Owner/Desktop/Lab Work/RNAseq/DE Analysis repeat masked genome/manually defined clusters/parabolic.txt")
+decreasing_variance = read.table("C:/Users/Owner/Desktop/Lab Work/RNAseq/DE Analysis repeat masked genome/manually defined clusters/decreasing_variance.txt")
+increasing_variance = read.table("C:/Users/Owner/Desktop/Lab Work/RNAseq/DE Analysis repeat masked genome/manually defined clusters/increasing_variance.txt")
+Y_origin = read.table("C:/Users/Owner/Desktop/Lab Work/RNAseq/DE Analysis repeat masked genome/manually defined clusters/Y_origin.txt")
+######################################
+
+```
+
+
+
+Use all of the clustered genes to make another object with the unclustered genes.
+```{r, making object with all unclustered genes}
+
+temp_merged = rbind(X_origin, autosomal, Y_dosage, X_Y_spike, XO_spike, XO_spike_reversed, X_YY_spike, constant_changes, parabolic, decreasing_variance, increasing_variance, Y_origin)
+non_clustered = subset(dendrogram_order, !(V1 %in% temp_merged$V1))
+rm(temp_merged)
+
+
+```
+
+
+
+```{r}
+
+temp_plot_list=vector("list", length(X_origin$V1))
+
+for(i in 1:211) {
+  
+  
+
+  current_gene = filter(normalized_reads, gene_name == X_origin$V1[i])
+  name <- paste("gene_with_variables",i,sep="_")
+  assign(name,data.frame("Gene"=current_gene$gene_name[1],"Repeat"=rep(c("5","6","7"), 4), "Genotype"=rep(c("XO","XY","X_Y","X_YY"), each = 3),"Ys"=rep(c(0,1,1,2), each = 3),"X_origin"=rep(c(0,1), each = 6),"autosomal_origin"=rep(c(1,2,0,1), each=3),"Reads"=c(current_gene$XO_5[1],current_gene$XO_6[1],current_gene$XO_7[1],current_gene$XY_5[1],current_gene$XY_6[1],current_gene$XY_7[1],current_gene$X_Y_5[1],current_gene$X_Y_6[1],current_gene$X_Y_7[1],current_gene$X_YY_5[1],current_gene$X_YY_6[1],current_gene$X_YY_7[1])))
+  
+  
+  Genotype_plot_name=paste("Genotype_plot",i,sep="_")
+  assign(Genotype_plot_name, ggplot(get(name), aes(x=Genotype,y=Reads,group=Repeat)) + geom_line(size=0.01,color="red") + geom_point() + scale_x_discrete(limits = c("XO", "XY", "X_Y","X_YY")) + expand_limits(y=0) +
+  xlab("Genotype") + ylab("reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by Genotype",sep=" ")))
+  
+  
+  
+
+   
+  
+  temp_plot_list[[i]]$data = get(name)
+  temp_plot_list[[i]]$Genotype_plot=get(Genotype_plot_name)
+
+  
+  print(temp_plot_list[[i]]$Genotype_plot)
+
+  
+}
+rm(list=ls(pattern="gene_with_variables"))
+rm(list=ls(pattern="_plot_"))
+```
+The X origin cluster:
+XO and XY individuals that received the canton-S X have similar expression levels, while X^Y and X^YY individuals with the BL4408 X share a different level of expression. 211 genes are in cluster A, with 57 on the X chromosome and 154 on the autosomes.
+
+
+
+
+
+
+```{r}
+
+temp_plot_list=vector("list", length(autosomal$V1))
+
+for(i in 1:166) {
+  
+  
+
+  current_gene = filter(normalized_reads, gene_name == autosomal$V1[i])
+  name <- paste("gene_with_variables",i,sep="_")
+  assign(name,data.frame("Gene"=current_gene$gene_name[1],"Repeat"=rep(c("5","6","7"), 4), "Genotype"=rep(c("XO","XY","X_Y","X_YY"), each = 3),"Ys"=rep(c(0,1,1,2), each = 3),"X_origin"=rep(c(0,1), each = 6),"autosomal_origin"=rep(c(1,2,0,1), each=3),"Reads"=c(current_gene$XO_5[1],current_gene$XO_6[1],current_gene$XO_7[1],current_gene$XY_5[1],current_gene$XY_6[1],current_gene$XY_7[1],current_gene$X_Y_5[1],current_gene$X_Y_6[1],current_gene$X_Y_7[1],current_gene$X_YY_5[1],current_gene$X_YY_6[1],current_gene$X_YY_7[1])))
+  
+  
+  Genotype_plot_name=paste("Genotype_plot",i,sep="_")
+  assign(Genotype_plot_name, ggplot(get(name), aes(x=Genotype,y=Reads,group=Repeat)) + geom_line(size=0.01,color="red") + geom_point() + scale_x_discrete(limits = c("XO", "XY", "X_Y","X_YY")) + expand_limits(y=0) +
+  xlab("Genotype") + ylab("reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by Genotype",sep=" ")))
+  
+  
+  
+
+   
+  
+  temp_plot_list[[i]]$data = get(name)
+  temp_plot_list[[i]]$Genotype_plot=get(Genotype_plot_name)
+
+  
+  print(temp_plot_list[[i]]$Genotype_plot)
+
+  
+}
+rm(list=ls(pattern="gene_with_variables"))
+rm(list=ls(pattern="_plot_"))
+```
+The autosomal background cluster:
+XY individuals with the full Canton-S autosomal background differ most strongly from X^Y individuals with the full BL4407 autosomal background, while XO and X^YY individuals with hybrid autosomal backgrounds have intermediate expression. There are 166 genes are in cluster B, with 1 on the X chromosome and the remaining 165 on the autosomes.
+I was stricter when defining this one, which is why there aren't 500-1000 genes here. It's notable that almost all of these are autosomal genes (although I wasn't too surprised by that).
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+temp_plot_list=vector("list", length(Y_dosage$V1))
+
+for(i in 1:27) {
+  
+  
+
+  current_gene = filter(normalized_reads, gene_name == Y_dosage$V1[i])
+  name <- paste("gene_with_variables",i,sep="_")
+  assign(name,data.frame("Gene"=current_gene$gene_name[1],"Repeat"=rep(c("5","6","7"), 4), "Genotype"=rep(c("XO","XY","X_Y","X_YY"), each = 3),"Ys"=rep(c(0,1,1,2), each = 3),"X_origin"=rep(c(0,1), each = 6),"autosomal_origin"=rep(c(1,2,0,1), each=3),"Reads"=c(current_gene$XO_5[1],current_gene$XO_6[1],current_gene$XO_7[1],current_gene$XY_5[1],current_gene$XY_6[1],current_gene$XY_7[1],current_gene$X_Y_5[1],current_gene$X_Y_6[1],current_gene$X_Y_7[1],current_gene$X_YY_5[1],current_gene$X_YY_6[1],current_gene$X_YY_7[1])))
+  
+  
+  Genotype_plot_name=paste("Genotype_plot",i,sep="_")
+  assign(Genotype_plot_name, ggplot(get(name), aes(x=Genotype,y=Reads,group=Repeat)) + geom_line(size=0.01,color="red") + geom_point() + scale_x_discrete(limits = c("XO", "XY", "X_Y","X_YY")) + expand_limits(y=0) +
+  xlab("Genotype") + ylab("reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by Genotype",sep=" ")))
+  
+  
+  
+
+   
+  
+  temp_plot_list[[i]]$data = get(name)
+  temp_plot_list[[i]]$Genotype_plot=get(Genotype_plot_name)
+
+  
+  print(temp_plot_list[[i]]$Genotype_plot)
+
+  
+}
+rm(list=ls(pattern="gene_with_variables"))
+rm(list=ls(pattern="_plot_"))
+```
+The Y dosage effects cluster:
+expression correlates with the number of Y chromosomes so that expression is lowest/highest in XO individuals, intermediate in XY and X^Y individuals, and highest/lowest in X^YY individuals. Cluster C contains 27 genes, with 8 on the Y chromosome, 0 on the X chromosome, and 19 on the autosomes.
+I can be stricter with this cluster to define fewer genes if necessary.
+
+
+
+
+```{r}
+
+temp_plot_list=vector("list", length(X_Y_spike$V1))
+
+for(i in 1:111) {
+  
+  
+
+  current_gene = filter(normalized_reads, gene_name == X_Y_spike$V1[i])
+  name <- paste("gene_with_variables",i,sep="_")
+  assign(name,data.frame("Gene"=current_gene$gene_name[1],"Repeat"=rep(c("5","6","7"), 4), "Genotype"=rep(c("XO","XY","X_Y","X_YY"), each = 3),"Ys"=rep(c(0,1,1,2), each = 3),"X_origin"=rep(c(0,1), each = 6),"autosomal_origin"=rep(c(1,2,0,1), each=3),"Reads"=c(current_gene$XO_5[1],current_gene$XO_6[1],current_gene$XO_7[1],current_gene$XY_5[1],current_gene$XY_6[1],current_gene$XY_7[1],current_gene$X_Y_5[1],current_gene$X_Y_6[1],current_gene$X_Y_7[1],current_gene$X_YY_5[1],current_gene$X_YY_6[1],current_gene$X_YY_7[1])))
+  
+  
+  Genotype_plot_name=paste("Genotype_plot",i,sep="_")
+  assign(Genotype_plot_name, ggplot(get(name), aes(x=Genotype,y=Reads,group=Repeat)) + geom_line(size=0.01,color="red") + geom_point() + scale_x_discrete(limits = c("XO", "XY", "X_Y","X_YY")) + expand_limits(y=0) +
+  xlab("Genotype") + ylab("reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by Genotype",sep=" ")))
+  
+  
+  
+
+   
+  
+  temp_plot_list[[i]]$data = get(name)
+  temp_plot_list[[i]]$Genotype_plot=get(Genotype_plot_name)
+
+  
+  print(temp_plot_list[[i]]$Genotype_plot)
+
+  
+}
+rm(list=ls(pattern="gene_with_variables"))
+rm(list=ls(pattern="_plot_"))
+```
+The X_Y spike cluster:
+Expression is much higher in X^Y individuals than in all others. There are 111 genes in cluster D, with 14 on the X chromosome and 97 on the autosomes. Since this expression spike only occurs in individuals with the homozygous BL4408 autosomal background, these are likely recessive effects of the line that are suppressed whenever Canton-S autosomes are present.
+
+
+
+```{r}
+
+temp_plot_list=vector("list", length(XO_spike$V1))
+
+for(i in 1:129) {
+  
+  
+
+  current_gene = filter(normalized_reads, gene_name == XO_spike$V1[i])
+  name <- paste("gene_with_variables",i,sep="_")
+  assign(name,data.frame("Gene"=current_gene$gene_name[1],"Repeat"=rep(c("5","6","7"), 4), "Genotype"=rep(c("XO","XY","X_Y","X_YY"), each = 3),"Ys"=rep(c(0,1,1,2), each = 3),"X_origin"=rep(c(0,1), each = 6),"autosomal_origin"=rep(c(1,2,0,1), each=3),"Reads"=c(current_gene$XO_5[1],current_gene$XO_6[1],current_gene$XO_7[1],current_gene$XY_5[1],current_gene$XY_6[1],current_gene$XY_7[1],current_gene$X_Y_5[1],current_gene$X_Y_6[1],current_gene$X_Y_7[1],current_gene$X_YY_5[1],current_gene$X_YY_6[1],current_gene$X_YY_7[1])))
+  
+  
+  Genotype_plot_name=paste("Genotype_plot",i,sep="_")
+  assign(Genotype_plot_name, ggplot(get(name), aes(x=Genotype,y=Reads,group=Repeat)) + geom_line(size=0.01,color="red") + geom_point() + scale_x_discrete(limits = c("XO", "XY", "X_Y","X_YY")) + expand_limits(y=0) +
+  xlab("Genotype") + ylab("reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by Genotype",sep=" ")))
+  
+  
+  
+
+   
+  
+  temp_plot_list[[i]]$data = get(name)
+  temp_plot_list[[i]]$Genotype_plot=get(Genotype_plot_name)
+
+  
+  print(temp_plot_list[[i]]$Genotype_plot)
+
+  
+}
+rm(list=ls(pattern="gene_with_variables"))
+rm(list=ls(pattern="_plot_"))
+```
+
+The XO spike cluster:
+Expression is much higher in XO individuals than in all others. There are 129 genes in cluster E, with 87 on the X chromosome and 42 on the autosomes. This expression pattern does not seem to be caused by autosomal or X background, since XO individuals share an autosomal background with X^YY individuals and an X origin with XY individuals. Instead, the spike in expression happens in individuals that carry no Y chromosomes, while individuals with any number of Y chromosomes show a different but consistent level of expression.
+We've spent a lot of time on this one already - I don't think piRNAs explain everything.
+
+
+
+
+```{r}
+
+temp_plot_list=vector("list", length(XO_spike_reversed$V1))
+
+for(i in 1:3) {
+  
+  
+
+  current_gene = filter(normalized_reads, gene_name == XO_spike_reversed$V1[i])
+  name <- paste("gene_with_variables",i,sep="_")
+  assign(name,data.frame("Gene"=current_gene$gene_name[1],"Repeat"=rep(c("5","6","7"), 4), "Genotype"=rep(c("XO","XY","X_Y","X_YY"), each = 3),"Ys"=rep(c(0,1,1,2), each = 3),"X_origin"=rep(c(0,1), each = 6),"autosomal_origin"=rep(c(1,2,0,1), each=3),"Reads"=c(current_gene$XO_5[1],current_gene$XO_6[1],current_gene$XO_7[1],current_gene$XY_5[1],current_gene$XY_6[1],current_gene$XY_7[1],current_gene$X_Y_5[1],current_gene$X_Y_6[1],current_gene$X_Y_7[1],current_gene$X_YY_5[1],current_gene$X_YY_6[1],current_gene$X_YY_7[1])))
+  
+  
+  Genotype_plot_name=paste("Genotype_plot",i,sep="_")
+  assign(Genotype_plot_name, ggplot(get(name), aes(x=Genotype,y=Reads,group=Repeat)) + geom_line(size=0.01,color="red") + geom_point() + scale_x_discrete(limits = c("XO", "XY", "X_Y","X_YY")) + expand_limits(y=0) +
+  xlab("Genotype") + ylab("reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by Genotype",sep=" ")))
+  
+  
+  
+
+   
+  
+  temp_plot_list[[i]]$data = get(name)
+  temp_plot_list[[i]]$Genotype_plot=get(Genotype_plot_name)
+
+  
+  print(temp_plot_list[[i]]$Genotype_plot)
+
+  
+}
+rm(list=ls(pattern="gene_with_variables"))
+rm(list=ls(pattern="_plot_"))
+```
+The reverse XO spike cluster:
+There are only three of these, and I hadn't noticed them before. If something on the Y enhances expression, it makes sense that XO flies have lower expression - but why don't X^YY flies have double expression?
+
+
+
+```{r}
+
+temp_plot_list=vector("list", length(X_YY_spike$V1))
+
+for(i in 1:9) {
+  
+  
+
+  current_gene = filter(normalized_reads, gene_name == X_YY_spike$V1[i])
+  name <- paste("gene_with_variables",i,sep="_")
+  assign(name,data.frame("Gene"=current_gene$gene_name[1],"Repeat"=rep(c("5","6","7"), 4), "Genotype"=rep(c("XO","XY","X_Y","X_YY"), each = 3),"Ys"=rep(c(0,1,1,2), each = 3),"X_origin"=rep(c(0,1), each = 6),"autosomal_origin"=rep(c(1,2,0,1), each=3),"Reads"=c(current_gene$XO_5[1],current_gene$XO_6[1],current_gene$XO_7[1],current_gene$XY_5[1],current_gene$XY_6[1],current_gene$XY_7[1],current_gene$X_Y_5[1],current_gene$X_Y_6[1],current_gene$X_Y_7[1],current_gene$X_YY_5[1],current_gene$X_YY_6[1],current_gene$X_YY_7[1])))
+  
+  
+  Genotype_plot_name=paste("Genotype_plot",i,sep="_")
+  assign(Genotype_plot_name, ggplot(get(name), aes(x=Genotype,y=Reads,group=Repeat)) + geom_line(size=0.01,color="red") + geom_point() + scale_x_discrete(limits = c("XO", "XY", "X_Y","X_YY")) + expand_limits(y=0) +
+  xlab("Genotype") + ylab("reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by Genotype",sep=" ")))
+  
+  
+  
+
+   
+  
+  temp_plot_list[[i]]$data = get(name)
+  temp_plot_list[[i]]$Genotype_plot=get(Genotype_plot_name)
+
+  
+  print(temp_plot_list[[i]]$Genotype_plot)
+
+  
+}
+rm(list=ls(pattern="gene_with_variables"))
+rm(list=ls(pattern="_plot_"))
+```
+The X_YY spike cluster:
+Expression is much higher in X^YY individuals than in all others. There are 9 genes in cluster F, with 3 on the X chromosome and 6 on the autosomes. As with the XO spike cluster, this expression pattern seems to be caused by Y dosage rather than by autosomal or X chromosome background. When flies carry two Y chromosomes, expression is enhanced compared to the consistent level of expression for zero or one Y chromosome.
+
+
+
+```{r}
+
+temp_plot_list=vector("list", length(constant_changes$V1))
+
+for(i in 1:164) {
+  
+  
+
+  current_gene = filter(normalized_reads, gene_name == constant_changes$V1[i])
+  name <- paste("gene_with_variables",i,sep="_")
+  assign(name,data.frame("Gene"=current_gene$gene_name[1],"Repeat"=rep(c("5","6","7"), 4), "Genotype"=rep(c("XO","XY","X_Y","X_YY"), each = 3),"Ys"=rep(c(0,1,1,2), each = 3),"X_origin"=rep(c(0,1), each = 6),"autosomal_origin"=rep(c(1,2,0,1), each=3),"Reads"=c(current_gene$XO_5[1],current_gene$XO_6[1],current_gene$XO_7[1],current_gene$XY_5[1],current_gene$XY_6[1],current_gene$XY_7[1],current_gene$X_Y_5[1],current_gene$X_Y_6[1],current_gene$X_Y_7[1],current_gene$X_YY_5[1],current_gene$X_YY_6[1],current_gene$X_YY_7[1])))
+  
+  
+  Genotype_plot_name=paste("Genotype_plot",i,sep="_")
+  assign(Genotype_plot_name, ggplot(get(name), aes(x=Genotype,y=Reads,group=Repeat)) + geom_line(size=0.01,color="red") + geom_point() + scale_x_discrete(limits = c("XO", "XY", "X_Y","X_YY")) + expand_limits(y=0) +
+  xlab("Genotype") + ylab("reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by Genotype",sep=" ")))
+  
+  
+  
+
+   
+  
+  temp_plot_list[[i]]$data = get(name)
+  temp_plot_list[[i]]$Genotype_plot=get(Genotype_plot_name)
+
+  
+  print(temp_plot_list[[i]]$Genotype_plot)
+
+  
+}
+rm(list=ls(pattern="gene_with_variables"))
+rm(list=ls(pattern="_plot_"))
+```
+
+The constant changes cluster:
+Expression differs in each sample, with a general increase or decrease with Y dosage but also different expression between XY and X^Y individuals. There are 164 genes in cluster G, with 50 on the X chromosome and 111 on the autosomes. These patterns may indicate a combination of Y dosage and background effects.
+
+
+
+
+
+```{r}
+
+temp_plot_list=vector("list", length(parabolic$V1))
+
+for(i in 1:16) {
+  
+  
+
+  current_gene = filter(normalized_reads, gene_name == parabolic$V1[i])
+  name <- paste("gene_with_variables",i,sep="_")
+  assign(name,data.frame("Gene"=current_gene$gene_name[1],"Repeat"=rep(c("5","6","7"), 4), "Genotype"=rep(c("XO","XY","X_Y","X_YY"), each = 3),"Ys"=rep(c(0,1,1,2), each = 3),"X_origin"=rep(c(0,1), each = 6),"autosomal_origin"=rep(c(1,2,0,1), each=3),"Reads"=c(current_gene$XO_5[1],current_gene$XO_6[1],current_gene$XO_7[1],current_gene$XY_5[1],current_gene$XY_6[1],current_gene$XY_7[1],current_gene$X_Y_5[1],current_gene$X_Y_6[1],current_gene$X_Y_7[1],current_gene$X_YY_5[1],current_gene$X_YY_6[1],current_gene$X_YY_7[1])))
+  
+  
+  Genotype_plot_name=paste("Genotype_plot",i,sep="_")
+  assign(Genotype_plot_name, ggplot(get(name), aes(x=Genotype,y=Reads,group=Repeat)) + geom_line(size=0.01,color="red") + geom_point() + scale_x_discrete(limits = c("XO", "XY", "X_Y","X_YY")) + expand_limits(y=0) +
+  xlab("Genotype") + ylab("reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by Genotype",sep=" ")))
+  
+  
+  
+
+   
+  
+  temp_plot_list[[i]]$data = get(name)
+  temp_plot_list[[i]]$Genotype_plot=get(Genotype_plot_name)
+
+  
+  print(temp_plot_list[[i]]$Genotype_plot)
+
+  
+}
+rm(list=ls(pattern="gene_with_variables"))
+rm(list=ls(pattern="_plot_"))
+```
+The parabolic cluster:
+One level of expression is shared by XO and X^YY individuals and a second level is shared by XY and X^Y individuals. There are 16 genes in cluster H, with 4 on the X chromosome and 12 on the autosomes. In some cases, the XO/X^YY expression is enhanced and in other cases this level is repressed compared to the XY/X^Y level. Because XY and X^Y flies are completely different in terms of autosomal and X chromosome background, this pattern is likely related to Y dosage – individuals without a wild-type number of Y chromosomes have disrupted expression.
+
+
+
+
+```{r}
+
+temp_plot_list=vector("list", length(decreasing_variance$V1))
+
+for(i in 1:141) {
+  
+  
+
+  current_gene = filter(normalized_reads, gene_name == decreasing_variance$V1[i])
+  name <- paste("gene_with_variables",i,sep="_")
+  assign(name,data.frame("Gene"=current_gene$gene_name[1],"Repeat"=rep(c("5","6","7"), 4), "Genotype"=rep(c("XO","XY","X_Y","X_YY"), each = 3),"Ys"=rep(c(0,1,1,2), each = 3),"X_origin"=rep(c(0,1), each = 6),"autosomal_origin"=rep(c(1,2,0,1), each=3),"Reads"=c(current_gene$XO_5[1],current_gene$XO_6[1],current_gene$XO_7[1],current_gene$XY_5[1],current_gene$XY_6[1],current_gene$XY_7[1],current_gene$X_Y_5[1],current_gene$X_Y_6[1],current_gene$X_Y_7[1],current_gene$X_YY_5[1],current_gene$X_YY_6[1],current_gene$X_YY_7[1])))
+  
+  
+  Genotype_plot_name=paste("Genotype_plot",i,sep="_")
+  assign(Genotype_plot_name, ggplot(get(name), aes(x=Genotype,y=Reads,group=Repeat)) + geom_line(size=0.01,color="red") + geom_point() + scale_x_discrete(limits = c("XO", "XY", "X_Y","X_YY")) + expand_limits(y=0) +
+  xlab("Genotype") + ylab("reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by Genotype",sep=" ")))
+  
+  
+  
+
+   
+  
+  temp_plot_list[[i]]$data = get(name)
+  temp_plot_list[[i]]$Genotype_plot=get(Genotype_plot_name)
+
+  
+  print(temp_plot_list[[i]]$Genotype_plot)
+
+  
+}
+rm(list=ls(pattern="gene_with_variables"))
+rm(list=ls(pattern="_plot_"))
+```
+
+The decreasing variance cluster:
+the variance in expression between repeats decreases as Y dosage increases. There are 141 genes in cluster J, with 14 on the X chromosome and 127 on the autosomes. This pattern is likely related to Y dosage since the differences do not correlate with autosomal or X chromosome background.Note that some genes in this cluster are also members of other clusters since other patterns can be apparent along with changes in variance.
+This one surprised me with how big it was - this seems to be a reasonably common effect. Also, most of these are on the autosomes, which seemed interesting to me. Biologically, it is possible that the additional Y chromosomes in X^YY flies have a stabilizing effect on expression compared to XO flies.
+I also thought it was interesting that so many of these have similar names (and probably functions). There are a lot of ACPs, OBPs, SFPs. This makes me think that there may be an actual biological effect here and not just something related to our sequencing.
+
+
+
+
+
+
+```{r}
+
+temp_plot_list=vector("list", length(increasing_variance$V1))
+
+for(i in 1:79) {
+  
+  
+
+  current_gene = filter(normalized_reads, gene_name == increasing_variance$V1[i])
+  name <- paste("gene_with_variables",i,sep="_")
+  assign(name,data.frame("Gene"=current_gene$gene_name[1],"Repeat"=rep(c("5","6","7"), 4), "Genotype"=rep(c("XO","XY","X_Y","X_YY"), each = 3),"Ys"=rep(c(0,1,1,2), each = 3),"X_origin"=rep(c(0,1), each = 6),"autosomal_origin"=rep(c(1,2,0,1), each=3),"Reads"=c(current_gene$XO_5[1],current_gene$XO_6[1],current_gene$XO_7[1],current_gene$XY_5[1],current_gene$XY_6[1],current_gene$XY_7[1],current_gene$X_Y_5[1],current_gene$X_Y_6[1],current_gene$X_Y_7[1],current_gene$X_YY_5[1],current_gene$X_YY_6[1],current_gene$X_YY_7[1])))
+  
+  
+  Genotype_plot_name=paste("Genotype_plot",i,sep="_")
+  assign(Genotype_plot_name, ggplot(get(name), aes(x=Genotype,y=Reads,group=Repeat)) + geom_line(size=0.01,color="red") + geom_point() + scale_x_discrete(limits = c("XO", "XY", "X_Y","X_YY")) + expand_limits(y=0) +
+  xlab("Genotype") + ylab("reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by Genotype",sep=" ")))
+  
+  
+  
+
+   
+  
+  temp_plot_list[[i]]$data = get(name)
+  temp_plot_list[[i]]$Genotype_plot=get(Genotype_plot_name)
+
+  
+  print(temp_plot_list[[i]]$Genotype_plot)
+
+  
+}
+rm(list=ls(pattern="gene_with_variables"))
+rm(list=ls(pattern="_plot_"))
+```
+
+
+
+
+The increasing variance cluster:
+the variance in expression between repeats increases as Y dosage increases. There are 79 genes in cluster J, with 10 on the X chromosome and 69 on the autosomes. Note that some genes in the cluster are also members of other clusters since other patterns can be apparent along with changes in variance.
+This cluster seems slightly smaller and weaker than the other variance-based cluster, and it might be worth my time to check through all the genes again for any that I missed. This one was harder to notice than the other variance cluster, and I didn't think it existed at first. With 10/79 genes on the X, this cluster isn't as strongly autosomal as the other variance cluster, but it's still notable.
+
+
+
+
+```{r}
+
+temp_plot_list=vector("list", length(Y_origin$V1))
+
+for(i in 1:26) {
+  
+  
+
+  current_gene = filter(normalized_reads, gene_name == Y_origin$V1[i])
+  name <- paste("gene_with_variables",i,sep="_")
+  assign(name,data.frame("Gene"=current_gene$gene_name[1],"Repeat"=rep(c("5","6","7"), 4), "Genotype"=rep(c("XO","XY","X_Y","X_YY"), each = 3),"Ys"=rep(c(0,1,1,2), each = 3),"X_origin"=rep(c(0,1), each = 6),"autosomal_origin"=rep(c(1,2,0,1), each=3),"Reads"=c(current_gene$XO_5[1],current_gene$XO_6[1],current_gene$XO_7[1],current_gene$XY_5[1],current_gene$XY_6[1],current_gene$XY_7[1],current_gene$X_Y_5[1],current_gene$X_Y_6[1],current_gene$X_Y_7[1],current_gene$X_YY_5[1],current_gene$X_YY_6[1],current_gene$X_YY_7[1])))
+  
+  
+  Genotype_plot_name=paste("Genotype_plot",i,sep="_")
+  assign(Genotype_plot_name, ggplot(get(name), aes(x=Genotype,y=Reads,group=Repeat)) + geom_line(size=0.01,color="red") + geom_point() + scale_x_discrete(limits = c("XO", "XY", "X_Y","X_YY")) + expand_limits(y=0) +
+  xlab("Genotype") + ylab("reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by Genotype",sep=" ")))
+  
+  
+  
+
+   
+  
+  temp_plot_list[[i]]$data = get(name)
+  temp_plot_list[[i]]$Genotype_plot=get(Genotype_plot_name)
+
+  
+  print(temp_plot_list[[i]]$Genotype_plot)
+
+  
+}
+rm(list=ls(pattern="gene_with_variables"))
+rm(list=ls(pattern="_plot_"))
+```
+
+The Y origin cluster:
+One level of expression is shared by XO and X^Y individuals and a second level is shared by XY and X^YY individuals. While this pattern does not correlate with genetic background from the autosomes or X chromosomes, there is one level of expression for individuals with Canton-S Y chromosomes and a different level of expression for individuals lacking Canton-S Y chromosomes. There are 26 genes in cluster K, with 2 on the Y chromosome, 0 on the X chromosome, and 24 on the autosomes.
+Again, it's interesting to me that there aren't any X genes here. It seems like the line from which the Y was derived can affect expression in some autosomal genes, but not in X genes.
+
+
+
+
+```{r}
+
+temp_plot_list=vector("list", length(non_clustered$V1))
+
+for(i in 1:1617) {
+  
+  
+
+  current_gene = filter(normalized_reads, gene_name == non_clustered$V1[i])
+  name <- paste("gene_with_variables",i,sep="_")
+  assign(name,data.frame("Gene"=current_gene$gene_name[1],"Repeat"=rep(c("5","6","7"), 4), "Genotype"=rep(c("XO","XY","X_Y","X_YY"), each = 3),"Ys"=rep(c(0,1,1,2), each = 3),"X_origin"=rep(c(0,1), each = 6),"autosomal_origin"=rep(c(1,2,0,1), each=3),"Reads"=c(current_gene$XO_5[1],current_gene$XO_6[1],current_gene$XO_7[1],current_gene$XY_5[1],current_gene$XY_6[1],current_gene$XY_7[1],current_gene$X_Y_5[1],current_gene$X_Y_6[1],current_gene$X_Y_7[1],current_gene$X_YY_5[1],current_gene$X_YY_6[1],current_gene$X_YY_7[1])))
+  
+  
+  Genotype_plot_name=paste("Genotype_plot",i,sep="_")
+  assign(Genotype_plot_name, ggplot(get(name), aes(x=Genotype,y=Reads,group=Repeat)) + geom_line(size=0.01,color="red") + geom_point() + scale_x_discrete(limits = c("XO", "XY", "X_Y","X_YY")) + expand_limits(y=0) +
+  xlab("Genotype") + ylab("reads") + ggtitle(paste("Gene",get(name)$Gene,"Reads by Genotype",sep=" ")))
+  
+  
+  
+
+   
+  
+  temp_plot_list[[i]]$data = get(name)
+  temp_plot_list[[i]]$Genotype_plot=get(Genotype_plot_name)
+
+  
+  print(temp_plot_list[[i]]$Genotype_plot)
+
+  
+}
+rm(list=ls(pattern="gene_with_variables"))
+rm(list=ls(pattern="_plot_"))
+```
+
+And here are all of the genes that don't fit well into any clusters. Many of them are pretty close to one or more clusters, but not quite close enough.
+
+
+
+
+
