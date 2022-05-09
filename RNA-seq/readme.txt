@@ -1,4 +1,4 @@
-These scrpits start from raw RNA seq reads and identify differentially expressed genes in a method similar to time series analysis. Run in order of the number in the file names. Scripts 1-6 are configured for running on Cornell's SLURM cluster, and may need to be changed to run on some other cluster.
+These scrpits start from raw RNA seq reads and identify differentially expressed genes in a method similar to time series analysis. Run in order of the number in the file names. Scripts 1-6 are configured for running on Cornell's SLURM cluster, and may need to be changed to run on some other cluster. Scripts 7-9 are run in R, and require the other .txt files in this folder.
 
 
 
